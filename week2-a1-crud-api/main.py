@@ -1,7 +1,11 @@
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
-app = FastAPI()
+app = FastAPI(
+    title="Task API",
+    version="1.0",
+    description="A small in-memory CRUD API for a to-do list (FlyRank Internship, W2 A1).",
+)
 
 # In-memory "database": gone when the server stops
 tasks = [
@@ -11,6 +15,47 @@ tasks = [
 ]
 
 
+# --- OpenAPI documentation helpers (Swagger UI) ---
+def error_response(status_code: int, description: str, example: str):
+    return {
+        status_code: {
+            "description": description,
+            "content": {"application/json": {"example": {"error": example}}},
+        }
+    }
+
+
+NOT_FOUND = error_response(404, "Task not found", "Task 99 not found")
+BAD_REQUEST = error_response(
+    400, "Invalid body", "'title' is required and must be a non-empty string"
+)
+
+
+def json_body(properties: dict, example: dict, required: list | None = None):
+    # The body is read manually with Request, so we describe it for Swagger by hand
+    schema = {"type": "object", "properties": properties}
+    if required:
+        schema["required"] = required
+    return {
+        "requestBody": {
+            "required": True,
+            "content": {"application/json": {"schema": schema, "example": example}},
+        }
+    }
+
+
+CREATE_BODY = json_body(
+    properties={"title": {"type": "string"}},
+    example={"title": "Buy milk"},
+    required=["title"],
+)
+UPDATE_BODY = json_body(
+    properties={"title": {"type": "string"}, "done": {"type": "boolean"}},
+    example={"title": "Buy oat milk", "done": True},
+)
+
+
+# --- Helpers ---
 def error(status_code: int, message: str):
     return JSONResponse(status_code=status_code, content={"error": message})
 
@@ -22,22 +67,28 @@ def find_task(task_id: int):
     return None
 
 
-@app.get("/")
+# --- Endpoints ---
+@app.get("/", summary="API info", description="Describes the API and its endpoints.")
 def root():
     return {"name": "Task API", "version": "1.0", "endpoints": ["/tasks"]}
 
 
-@app.get("/health")
+@app.get("/health", summary="Health check", description="Returns ok if the server is alive.")
 def health():
     return {"status": "ok"}
 
 
-@app.get("/tasks")
+@app.get("/tasks", summary="List tasks", description="Returns all tasks.")
 def list_tasks():
     return tasks
 
 
-@app.get("/tasks/{task_id}")
+@app.get(
+    "/tasks/{task_id}",
+    summary="Get one task",
+    description="Returns the task with the given id, or 404 if it does not exist.",
+    responses={**NOT_FOUND},
+)
 def get_task(task_id: int):
     task = find_task(task_id)
     if task is None:
@@ -45,7 +96,15 @@ def get_task(task_id: int):
     return task
 
 
-@app.post("/tasks", status_code=201)
+@app.post(
+    "/tasks",
+    status_code=201,
+    summary="Create a task",
+    description="Creates a task from a JSON body. 'title' is required and non-empty. "
+    "The server sets the id and done=false.",
+    responses={**BAD_REQUEST},
+    openapi_extra=CREATE_BODY,
+)
 async def create_task(request: Request):
     try:
         body = await request.json()
@@ -65,7 +124,14 @@ async def create_task(request: Request):
     return task
 
 
-@app.put("/tasks/{task_id}")
+@app.put(
+    "/tasks/{task_id}",
+    summary="Update a task",
+    description="Updates 'title' and/or 'done'. At least one is required. "
+    "Unknown id gives 404, invalid body gives 400.",
+    responses={**BAD_REQUEST, **NOT_FOUND},
+    openapi_extra=UPDATE_BODY,
+)
 async def update_task(task_id: int, request: Request):
     task = find_task(task_id)
     if task is None:
@@ -97,7 +163,13 @@ async def update_task(task_id: int, request: Request):
     return task
 
 
-@app.delete("/tasks/{task_id}", status_code=204)
+@app.delete(
+    "/tasks/{task_id}",
+    status_code=204,
+    summary="Delete a task",
+    description="Deletes the task. Returns 204 with an empty body, or 404 if unknown.",
+    responses={**NOT_FOUND},
+)
 def delete_task(task_id: int):
     task = find_task(task_id)
     if task is None:
