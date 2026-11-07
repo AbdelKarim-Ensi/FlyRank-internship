@@ -39,9 +39,19 @@ All errors return JSON: `{ "error": "message" }`.
 curl -i -X POST http://localhost:8000/tasks -H "Content-Type: application/json" -d '{"title":"Buy milk"}'
 ```
 
+```
+HTTP/1.1 201 Created
+date: Sat, 07 Nov 2026 20:07:21 GMT
+server: uvicorn
+content-length: 40
+content-type: application/json
+
+{"id":6,"title":"Buy milk","done":false}
+```
+
 ## Swagger UI
 
-![Swagger UI](docs/swagger.png)
+
 
 ## The mortality experiment
 
