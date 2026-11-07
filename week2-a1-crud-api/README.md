@@ -51,6 +51,8 @@ content-type: application/json
 
 ## Swagger UI
 
+![Swagger UI](docs/swagger.png)
+
 
 
 ## The mortality experiment
